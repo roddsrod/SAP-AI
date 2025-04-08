@@ -1,25 +1,38 @@
-// app.js
-
 const express = require('express');
-const cors = require('cors');
 const axios = require('axios');
+const basicAuth = require('express-basic-auth');
 require('dotenv').config();
 
 const app = express();
-
-const allowedOrigins = ['https://dt-lmr.test.apimanagement.us10.hana.ondemand.com'];
-
-app.use(cors({
-  origin: function (origin, callback) {
-    if (allowedOrigins.includes(origin) || !origin) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  }
-}));
-
 app.use(express.json());
+
+// Extract credentials from VCAP_SERVICES
+let clientId, clientSecret;
+
+if (process.env.VCAP_SERVICES) {
+  try {
+    const vcapServices = JSON.parse(process.env.VCAP_SERVICES);
+    const xsuaaService = vcapServices.xsuaa.find(service => service.name === 'mistral');
+    if (!xsuaaService) throw new Error("XSUAA service 'mistral' not found");
+
+    clientId = xsuaaService.credentials.clientid;
+    clientSecret = xsuaaService.credentials.clientsecret;
+  } catch (err) {
+    console.error("Error parsing VCAP_SERVICES:", err.message);
+    process.exit(1);
+  }
+} else {
+  console.error("VCAP_SERVICES is not set");
+  process.exit(1);
+}
+
+// Implement Basic Authentication middleware
+app.use(
+  basicAuth({
+    users: { [clientId]: clientSecret }, // Use credentials from VCAP_SERVICES
+    challenge: true, // Prompts browsers for username/password
+  })
+);
 
 const PORT = process.env.PORT || 3000;
 
@@ -37,17 +50,16 @@ app.post('/mistral', async (req, res) => {
       {
         headers: {
           Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         }
       }
     );
 
     const output = response.data.choices[0].message.content;
     res.json({ response: output });
-
   } catch (err) {
-    console.error(err.response?.data || err);
-    res.status(500).send("Error calling Mistral");
+    console.error("Error calling Mistral API:", err.response?.data || err.message);
+    res.status(500).send("Error calling Mistral API");
   }
 });
 
