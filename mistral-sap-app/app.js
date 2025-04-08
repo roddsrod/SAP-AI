@@ -1,9 +1,24 @@
 // app.js
+
 const express = require('express');
+const cors = require('cors');
 const axios = require('axios');
 require('dotenv').config();
 
 const app = express();
+
+const allowedOrigins = ['https://dt-lmr.test.apimanagement.us10.hana.ondemand.com'];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (allowedOrigins.includes(origin) || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
+}));
+
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
@@ -31,7 +46,7 @@ app.post('/mistral', async (req, res) => {
     res.json({ response: output });
 
   } catch (err) {
-    console.error(err);
+    console.error(err.response?.data || err);
     res.status(500).send("Error calling Mistral");
   }
 });
@@ -39,4 +54,3 @@ app.post('/mistral', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
