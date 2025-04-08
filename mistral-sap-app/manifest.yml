@@ -1,0 +1,11 @@
+---
+applications:
+  - name: mistral-sap-app
+    memory: 512M
+    instances: 1
+    path: .
+    buildpacks:
+      - nodejs_buildpack
+    env:
+      NODE_ENV: production
+
