@@ -1,12 +1,12 @@
 const express = require('express');
 const axios = require('axios');
+require('dotenv').config(); // Load .env variables
+
 const basicAuth = require('express-basic-auth');
-require('dotenv').config();
 
 const app = express();
 app.use(express.json());
 
-// Extract credentials from VCAP_SERVICES
 let clientId, clientSecret;
 
 if (process.env.VCAP_SERVICES) {
@@ -22,15 +22,18 @@ if (process.env.VCAP_SERVICES) {
     process.exit(1);
   }
 } else {
-  console.error("VCAP_SERVICES is not set");
-  process.exit(1);
+  clientId = process.env.CLIENT_ID;
+  clientSecret = process.env.CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    console.error("Missing CLIENT_ID or CLIENT_SECRET in environment variables");
+    process.exit(1);
+  }
 }
 
-// Implement Basic Authentication middleware
 app.use(
   basicAuth({
-    users: { [clientId]: clientSecret }, // Use credentials from VCAP_SERVICES
-    challenge: true, // Prompts browsers for username/password
+    users: { [clientId]: clientSecret },
+    challenge: true,
   })
 );
 
@@ -59,7 +62,7 @@ app.post('/mistral', async (req, res) => {
     res.json({ response: output });
   } catch (err) {
     console.error("Error calling Mistral API:", err.response?.data || err.message);
-    res.status(500).send("Error calling Mistral API");
+    res.status(500).send(err.response?.data || "Error calling Mistral API");
   }
 });
 
